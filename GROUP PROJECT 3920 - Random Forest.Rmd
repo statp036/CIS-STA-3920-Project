@@ -1,0 +1,137 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(datasets)
+library(tidyverse) 
+library(caret)
+library(grid)
+library(gridExtra)
+library(GGally)
+library(rpart)
+library(rpart.plot)
+library(corrplot)
+library(ROCR)
+```
+
+```{r}
+dataset_1=read.csv("student-mat.csv", header =T, na.strings = "?")
+
+dataset <- dataset_1[c(3:26,28,29,30,33)]
+dim(dataset)
+```
+
+
+```{r}
+for(i in 1:395){
+  if(dataset[i,25] > 2){ dataset[i,25] <- "Severe"}
+  else {dataset[i, 25] <- "Soft"}
+}
+
+dataset
+```
+
+```{r}
+v <- dataset$Walc
+table(v)
+```
+
+```{r}
+set.seed(3) 
+idx <- createDataPartition(factor(dataset_1$Walc), 
+                           times = 1, 
+                           p = 0.5, 
+                           list = FALSE)
+
+
+trainset <- dataset[idx,] 
+
+validation_set <- dataset[-idx,] %>% select(-Walc)   
+validation_labels <- dataset[-idx,] %>% select(Walc)
+```
+
+
+```{r}
+
+control <- trainControl(method = "cv", 
+                        verboseIter = TRUE,
+                        savePredictions = "final",
+                        classProbs = TRUE) 
+
+set.seed(1)
+model <- train(Walc ~ ., data = dataset,
+               trControl = control,
+               maximize = TRUE,
+               tuneGrid = data.frame(mtry = 4),
+               method = "rf")
+
+```
+
+```{r}
+model
+```
+
+```{r}
+confusionMatrix.train(model)
+```
+
+```{r}
+val_preds <- predict(model, validation_set)
+```
+
+```{r}
+confusionMatrix(factor(val_preds), factor(validation_labels$Walc))
+```
+
+
+```{r}
+varImp(model)
+```
+
+```{r}
+set.seed(17)
+
+data_set_size <- floor(nrow(dataset)/2)
+
+indexes <- sample(1:nrow(dataset), size = data_set_size)
+
+
+training <- dataset[indexes,]
+validation1 <- dataset[-indexes,]
+
+library(randomForest)
+
+rf_classifier = randomForest(factor(Walc)~., data=training, ntree=100, mtry=4, importance=TRUE)
+rf_classifier
+```
+
+```{r}
+
+prediction_for_roc_curve <- predict(rf_classifier,validation1[,-25],type="prob")
+
+
+pretty_colours <- c("#F8766D","#00BA38")
+
+classes <- levels(factor(validation1$Walc))
+
+for (i in 1:2)
+{
+ true_values <- ifelse(validation1[,25]==classes[i],1,0)
+ pred <- prediction(prediction_for_roc_curve[,i],true_values)
+ perf <- performance(pred, "tpr", "fpr")
+ if (i==1)
+ {
+     plot(perf,main="ROC Curve",col=pretty_colours[i]) 
+ }
+ else
+ {
+     plot(perf,main="ROC Curve",col=pretty_colours[i],add=TRUE) 
+ }
+ auc.perf <- performance(pred, measure = "auc")
+ print(auc.perf@y.values)
+}
+
+```
+

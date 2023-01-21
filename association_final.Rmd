@@ -1,0 +1,29 @@
+---
+title: "project"
+output: word_document
+---
+
+
+```{r}
+library("datasets")
+library("arules")
+```
+
+```{r}
+dataset =read.csv("student-mat.csv", header =T, na.strings = "?")
+dataset <- dataset_1[c(1:30,33)]
+```
+
+```{r}
+head(as(dataset, "list"),5)
+```
+
+```{r}
+model_1=apriori(data=dataset,parameter=list(support=.1,confidence=.3),appearance = list(default = "lhs",rhs = "G3=[0,10)"))
+#model_1=apriori(data=dataset,parameter=list(support=.7,confidence=.3))
+```
+
+```{r}
+inspect(sort(model_1, by = 'lift') [1:100])
+```
+
